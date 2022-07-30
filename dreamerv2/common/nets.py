@@ -48,8 +48,15 @@ class EnsembleRSSM(common.Module):
     if state is None:
       state = self.initial(tf.shape(action)[0])
     post, prior = common.static_scan(
-        lambda prev, inputs: self.obs_step(prev[0], *inputs),
-        (swap(action), swap(embed), swap(is_first)), (state, state))
+      lambda prev, inputs: self.obs_step(prev[0], *inputs),
+      (swap(action), swap(embed), swap(is_first)),
+      (state, state))
+    #print( " ####  Inside Observe  #### ")
+    #print("state", state)
+    #print("action swapped", swap(action))
+    #print("embed swapped", swap(embed))
+    #print("is_first swapped", swap(is_first))
+    #print(" ####  Leaving Observe  #### ")
     post = {k: swap(v) for k, v in post.items()}
     prior = {k: swap(v) for k, v in prior.items()}
     return post, prior
@@ -201,6 +208,14 @@ class Encoder(common.Module):
   @tf.function
   def __call__(self, data):
     key, shape = list(self.shapes.items())[0]
+    #print("data")
+    #print(data)
+    #print("keys")
+    #print(key)
+    #print("self.cnn_keys")
+    #print(self.cnn_keys)
+    #print("self.mlp_keys")
+    #print(self.mlp_keys)
     batch_dims = data[key].shape[:-len(shape)]
     data = {
         k: tf.reshape(v, (-1,) + tuple(v.shape)[len(batch_dims):])
@@ -276,7 +291,7 @@ class Decoder(common.Module):
     x = x.reshape(features.shape[:-1] + x.shape[1:])
     means = tf.split(x, list(channels.values()), -1)
     dists = {
-        key: tfd.Independent(tfd.Normal(mean, 1), 3)
+        key: tfd.Independent(tfd.Normal(mean, 1), 3) ##Aqui era 3
         for (key, shape), mean in zip(channels.items(), means)}
     return dists
 

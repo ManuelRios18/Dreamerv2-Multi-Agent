@@ -50,10 +50,16 @@ class GymWrapper:
   def step(self, action):
     if not self._act_is_dict:
       action = action[self._act_key]
-    obs, reward, done, info = self._env.step(action)
+    obs, reward, done, info = self._env.step({"player_0": action})
     if not self._obs_is_dict:
       obs = {self._obs_key: obs}
-    obs['reward'] = float(reward)
+
+    obs = obs["player_0"]
+    obs = {key: value for key, value in obs.items() if key == "RGB"}
+    done = done["__all__"]
+    obs['reward'] = float(reward["player_0"])
+
+
     obs['is_first'] = False
     obs['is_last'] = done
     obs['is_terminal'] = info.get('is_terminal', done)
@@ -63,6 +69,10 @@ class GymWrapper:
     obs = self._env.reset()
     if not self._obs_is_dict:
       obs = {self._obs_key: obs}
+
+    obs = obs["player_0"]
+    obs = {key: value for key, value in obs.items() if key == "RGB"}
+
     obs['reward'] = 0.0
     obs['is_first'] = True
     obs['is_last'] = False

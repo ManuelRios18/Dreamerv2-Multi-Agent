@@ -104,20 +104,30 @@ class WorldModel(common.Module):
 
   def loss(self, data, state=None):
     data = self.preprocess(data)
+    #print("data", data)
     embed = self.encoder(data)
+    #print("embed", data)
+    #print("state", state)
     post, prior = self.rssm.observe(
         embed, data['action'], data['is_first'], state)
     kl_loss, kl_value = self.rssm.kl_loss(post, prior, **self.config.kl)
     assert len(kl_loss.shape) == 0
     likes = {}
     losses = {'kl': kl_loss}
+    #print("posterior", post)
     feat = self.rssm.get_feat(post)
     for name, head in self.heads.items():
       grad_head = (name in self.config.grad_heads)
       inp = feat if grad_head else tf.stop_gradient(feat)
       out = head(inp)
       dists = out if isinstance(out, dict) else {name: out}
+      #print("features: ", feat)
+      #print("out is instance of dict?", isinstance(out, dict))
+      #print("pase por aqui")
+      #print("current_head", head)
       for key, dist in dists.items():
+        #print("current_key", key)
+        #print("current_dist", dist)
         like = tf.cast(dist.log_prob(data[key]), tf.float32)
         likes[key] = like
         losses[key] = -like.mean()
