@@ -53,6 +53,7 @@ def main():
   if config.precision == 16:
     import tensorflow.keras.mixed_precision as prec
     prec.set_global_policy(prec.Policy('mixed_float16'))
+    print("Setting mixed_float16")
 
   train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
   eval_replay = common.Replay(logdir / 'eval_episodes', **dict(
