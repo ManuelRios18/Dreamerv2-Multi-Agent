@@ -44,6 +44,12 @@ def train(env, config, outputs=None):
       common.JSONLOutput(config.logdir),
       common.TensorBoardOutput(config.logdir),
   ]
+
+  if config.precision == 16:
+    import tensorflow.keras.mixed_precision as prec
+    prec.set_global_policy(prec.Policy('mixed_float16'))
+    print("Setting mixed_float16")
+
   replay = common.Replay(logdir / 'train_episodes', **config.replay)
   step = common.Counter(replay.stats['total_steps'])
   logger = common.Logger(step, outputs, multiplier=config.action_repeat)
