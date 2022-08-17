@@ -13,6 +13,11 @@ class GymWrapper:
 
   def __init__(self, env, obs_key='image', act_key='action'):
     self._env = env
+    self.is_meltingpot_env = False
+    self.n_agents = None
+    if hasattr(self._env, 'is_meltingpot_env'):
+      self.is_meltingpot_env = True
+      self.n_agents = self._env._num_players
     self._obs_is_dict = hasattr(self._env.observation_space, 'spaces')
     self._act_is_dict = hasattr(self._env.action_space, 'spaces')
     self._obs_key = obs_key
@@ -50,15 +55,19 @@ class GymWrapper:
   def step(self, action):
     if not self._act_is_dict:
       action = action[self._act_key]
-    obs, reward, done, info = self._env.step({"player_0": action})
+    if self.is_meltingpot_env:
+      obs, reward, done, info = self._env.step({"player_0": action})
+    else:
+      obs, reward, done, info = self._env.step(action)
     if not self._obs_is_dict:
       obs = {self._obs_key: obs}
-
-    obs = obs["player_0"]
-    obs = {key: value for key, value in obs.items() if key == "RGB"}
-    done = done["__all__"]
-    obs['reward'] = float(reward["player_0"])
-
+    if self.is_meltingpot_env:
+      obs = obs["player_0"]
+      obs = {key: value for key, value in obs.items() if key == "RGB"}
+      done = done["__all__"]
+      obs['reward'] = float(reward["player_0"])
+    else:
+      obs['reward'] = float(reward)
 
     obs['is_first'] = False
     obs['is_last'] = done
@@ -69,9 +78,9 @@ class GymWrapper:
     obs = self._env.reset()
     if not self._obs_is_dict:
       obs = {self._obs_key: obs}
-
-    obs = obs["player_0"]
-    obs = {key: value for key, value in obs.items() if key == "RGB"}
+    if self.is_meltingpot_env:
+      obs = obs["player_0"]
+      obs = {key: value for key, value in obs.items() if key == "RGB"}
 
     obs['reward'] = 0.0
     obs['is_first'] = True
