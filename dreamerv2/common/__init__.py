@@ -8,6 +8,7 @@ from .when import *
 # RL tools.
 from .other import *
 from .driver import *
+from .driver_ma import *
 from .envs import *
 from .replay import *
 
