@@ -146,12 +146,18 @@ def train(env, testing_env, config, outputs=None):
       logger.add(agnt.report(next(train_dataset)))
       logger.write(fps=True)
   train_driver.on_step(train_step)
-
+  best_agent_score = -float("inf")
   while step < config.steps:
     logger.write()
     print('Start evaluation.')
     logger.add(agnt.report(next(eval_dataset)), prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
+    agent_score = np.mean(eval_driver.episode_rewards)
+    if agent_score > best_agent_score:
+      best_agent_score = agent_score
+      agent_id = f"ba_{step.value}"
+      agnt.save(logdir / f'{agent_id}_variables.pkl')
+      print(f"Saving best agent with score {agent_score}")
     print('Start training.')
     train_driver(train_policy, steps=config.eval_every)
     agnt.save(logdir / 'variables.pkl')

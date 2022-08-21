@@ -11,6 +11,7 @@ class Driver:
     self._on_episodes = []
     self._act_spaces = [env.act_space for env in envs]
     self.reset()
+    self.episode_rewards = []
 
   def on_step(self, callback):
     self._on_steps.append(callback)
@@ -25,9 +26,11 @@ class Driver:
     self._obs = [None] * len(self._envs)
     self._eps = [None] * len(self._envs)
     self._state = None
+    self.episode_rewards = []
 
   def __call__(self, policy, steps=0, episodes=0):
     step, episode = 0, 0
+    self.episode_rewards = []
     while step < steps or episode < episodes:
       obs = {
           i: self._envs[i].reset()
@@ -54,6 +57,8 @@ class Driver:
         if ob['is_last']:
           ep = self._eps[i]
           ep = {k: self._convert([t[k] for t in ep]) for k in ep[0]}
+          ep_reward = float(ep['reward'].astype(np.float64).sum())
+          self.episode_rewards.append(ep_reward)
           [fn(ep, **self._kwargs) for fn in self._on_episodes]
           episode += 1
       self._obs = obs
