@@ -100,17 +100,17 @@ def train(env, testing_env, config, outputs=None):
   train_env = wrap_env(env)
   eval_env = wrap_env(testing_env)
 
-  train_driver = common.Driver([train_env])
+  train_driver = common.MultiAgentDriver([train_env])
   train_driver.on_episode(lambda ep: per_episode(ep, mode='train'))
   train_driver.on_step(lambda tran, worker: step.increment())
-  train_driver.on_step(train_replay.add_step)
-  train_driver.on_reset(train_replay.add_step)
+  train_driver.on_step(agents_mob.add_steps_train)
+  train_driver.on_reset(agents_mob.add_steps_train)
 
   eval_driver = common.Driver([eval_env])
   eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
-  eval_driver.on_episode(eval_replay.add_episode)
+  eval_driver.on_episode(agents_mob.add_episode_eval)
 
-  prefill = max(0, config.prefill - train_replay.stats['total_steps'])
+  prefill = max(0, config.prefill - agents_mob.train_replays[agents_prefix+str(0)].stats['total_steps'])
   if prefill:
     print(f'Prefill dataset ({prefill} steps).')
     random_agent = common.RandomAgent(train_env.act_space)
@@ -120,11 +120,14 @@ def train(env, testing_env, config, outputs=None):
     eval_driver.reset()
 
   print('Create agent.')
-  agnt = agent.Agent(config, train_env.obs_space, train_env.act_space, step)
-  train_dataset = iter(train_replay.dataset(**config.dataset))
-  eval_dataset = iter(eval_replay.dataset(**config.dataset))
-  train_agent = common.CarryOverState(agnt.train)
-  train_agent(next(train_dataset))
+  agents_mob.create_agents(train_env.obs_space, train_env.act_space, step)
+
+  train_datasets = agents_mob.get_datasets(mode="train")
+  eval_datasets = agents_mob.get_datasets(mode="eval")
+
+  traing_agents = common.CarryOverState(agents_mob.train_mob)
+  traing_agents(train_datasets)
+
   if (logdir / 'variables.pkl').exists():
     agnt.load(logdir / 'variables.pkl')
   else:
@@ -146,6 +149,7 @@ def train(env, testing_env, config, outputs=None):
         metrics[name].clear()
       logger.add(agnt.report(next(train_dataset)))
       logger.write(fps=True)
+
   train_driver.on_step(train_step)
   best_agent_score = -float("inf")
   while step < config.steps:
