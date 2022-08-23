@@ -106,7 +106,7 @@ def train(env, testing_env, config, outputs=None):
   train_driver.on_step(agents_mob.add_steps_train)
   train_driver.on_reset(agents_mob.add_steps_train)
 
-  eval_driver = common.Driver([eval_env])
+  eval_driver = common.MultiAgentDriver([eval_env])
   eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
   eval_driver.on_episode(agents_mob.add_episode_eval)
 
@@ -125,29 +125,27 @@ def train(env, testing_env, config, outputs=None):
   train_datasets = agents_mob.get_datasets(mode="train")
   eval_datasets = agents_mob.get_datasets(mode="eval")
 
-  traing_agents = common.CarryOverState(agents_mob.train_mob)
-  traing_agents(train_datasets)
+  train_agents = common.CarryOverState(agents_mob.train_mob)
+  train_agents(train_datasets)
 
-  if (logdir / 'variables.pkl').exists():
-    agnt.load(logdir / 'variables.pkl')
-  else:
-    print('Pretrain agent.')
+  if not agents_mob.load_agents():
+    print('Pretrain agents.')
     for _ in range(config.pretrain):
-      train_agent(next(train_dataset))
-  train_policy = lambda *args: agnt.policy(
-      *args, mode='explore' if should_expl(step) else 'train')
-  eval_policy = lambda *args: agnt.policy(*args, mode='eval')
+      train_agents(train_datasets)
+
+  train_policy = lambda *args: agents_mob.mob_policy(*args, mode='explore' if should_expl(step) else 'train')
+  eval_policy = lambda *args: agents_mob.mob_policy(*args, mode='eval')
 
   def train_step(tran, worker):
     if should_train(step):
       for _ in range(config.train_steps):
-        mets = train_agent(next(train_dataset))
+        mets = train_agents(train_datasets)
         [metrics[key].append(value) for key, value in mets.items()]
     if should_log(step):
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
         metrics[name].clear()
-      logger.add(agnt.report(next(train_dataset)))
+      logger.add(agents_mob.report(train_agents))
       logger.write(fps=True)
 
   train_driver.on_step(train_step)
@@ -155,14 +153,14 @@ def train(env, testing_env, config, outputs=None):
   while step < config.steps:
     logger.write()
     print('Start evaluation.')
-    logger.add(agnt.report(next(eval_dataset)), prefix='eval')
+    logger.add(agents_mob.report(eval_datasets), prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
     agent_score = np.mean(eval_driver.episode_rewards)
     if agent_score > best_agent_score:
       best_agent_score = agent_score
-      agent_id = f"ba_{step.value}"
-      agnt.save(logdir / f'{agent_id}_variables.pkl')
-      print(f"Saving best agent with score {agent_score}")
+      agents_prefix = f"ba_{step.value}_"
+      agents_mob.save_agents(agents_prefix)
+      print(f"Saving best mob with score {agent_score}")
     print('Start training.')
     train_driver(train_policy, steps=config.eval_every)
-    agnt.save(logdir / 'variables.pkl')
+    agents_mob.save_agents()
