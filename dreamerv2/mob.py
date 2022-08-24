@@ -97,3 +97,22 @@ class Mob:
                 result[f"{player_id}_{k}"] = v
         return result
 
+
+class RandomMob:
+
+    def __init__(self, act_space, n_agents, prefix):
+        self.act_space = act_space
+        self.n_agents = n_agents
+        self.prefix = prefix
+        self.agents = {f"{self.prefix}{player_num}":
+                           common.RandomAgent(act_space) for player_num in range(n_agents)}
+
+    def __call__(self, observations, state=None, mode=None):
+        output = {}
+        for player_id, player in self.agents.items():
+            obs = observations[player_id]
+            actions = player(obs, None, None)
+            output[player_id] = actions
+
+        return output, None
+

@@ -113,7 +113,7 @@ def train(env, testing_env, config, outputs=None):
   prefill = max(0, config.prefill - agents_mob.train_replays[agents_prefix+str(0)].stats['total_steps'])
   if prefill:
     print(f'Prefill dataset ({prefill} steps).')
-    random_agent = common.RandomAgent(train_env.act_space)
+    random_agent = mob.RandomMob(train_env.act_space)
     train_driver(random_agent, steps=prefill, episodes=1)
     eval_driver(random_agent, episodes=1)
     train_driver.reset()
