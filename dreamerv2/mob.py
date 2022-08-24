@@ -35,7 +35,6 @@ class Mob:
         :param worker:
         :return:
         """
-        print(transitions)
         for player_id, transition in transitions.items():
             self.train_replays[player_id].add_step(transition, worker)
 

@@ -35,12 +35,26 @@ class MultiAgentDriver:
       obs = {
           i: self._envs[i].reset()
           for i, ob in enumerate(self._obs) if ob is None or ob['is_last']}
-      for i, ob in obs.items():
-        self._obs[i] = ob() if callable(ob) else ob
-        act = {k: np.zeros(v.shape) for k, v in self._act_spaces[i].items()}
-        tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
-        [fn(tran, worker=i, **self._kwargs) for fn in self._on_resets]
-        self._eps[i] = [tran]
+
+      for i, observations in obs.items():
+        transitions = {}
+        self._obs[i] = observations() if callable(observations) else observations
+        for player_id, ob in observations.items():
+          act = {k: np.zeros(v.shape) for k, v in self._act_spaces[i].items()}
+          tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
+        transitions[player_id] = tran
+        [fn(transitions, worker=i, **self._kwargs) for fn in self._on_resets]
+        self._eps[i] = [transitions]
+
+
+      # for i, ob in obs.items():
+      #   self._obs[i] = ob() if callable(ob) else ob
+      #   act = {k: np.zeros(v.shape) for k, v in self._act_spaces[i].items()}
+      #   tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
+      #   [fn(tran, worker=i, **self._kwargs) for fn in self._on_resets]
+      #   self._eps[i] = [tran]
+
+
       obs = {k: np.stack([o[k] for o in self._obs]) for k in self._obs[0]}
       actions, self._state = policy(obs, self._state, **self._kwargs)
       actions = [
