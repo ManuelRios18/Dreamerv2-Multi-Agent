@@ -88,8 +88,8 @@ def train(env, testing_env, config, outputs=None):
     logger.write()
 
   def wrap_env(base_env):
-    wrapped_env = common.GymWrapper(base_env)
-    wrapped_env = common.ResizeImage(wrapped_env)
+    wrapped_env = common.GymWrapperMultiAgent(base_env)
+    wrapped_env = common.ResizeImageMultiAgent(wrapped_env)
     if hasattr(wrapped_env.act_space['action'], 'n'):
       train_env = common.OneHotAction(wrapped_env)
     else:
@@ -113,7 +113,7 @@ def train(env, testing_env, config, outputs=None):
   prefill = max(0, config.prefill - agents_mob.train_replays[agents_prefix+str(0)].stats['total_steps'])
   if prefill:
     print(f'Prefill dataset ({prefill} steps).')
-    random_agent = mob.RandomMob(train_env.act_space)
+    random_agent = mob.RandomMob(train_env.act_space, n_agents, agents_prefix)
     train_driver(random_agent, steps=prefill, episodes=1)
     eval_driver(random_agent, episodes=1)
     train_driver.reset()

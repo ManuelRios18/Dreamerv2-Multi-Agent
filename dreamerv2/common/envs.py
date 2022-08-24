@@ -9,6 +9,83 @@ import gym
 import numpy as np
 
 
+class GymWrapperMultiAgent:
+
+  def __init__(self, env, obs_key='image', act_key='action'):
+    self._env = env
+    self.is_meltingpot_env = False
+    self.n_agents = None
+    if hasattr(self._env, 'is_meltingpot_env'):
+      self.is_meltingpot_env = True
+      self.n_agents = self._env._num_players
+    self._obs_is_dict = hasattr(self._env.observation_space, 'spaces')
+    self._act_is_dict = hasattr(self._env.action_space, 'spaces')
+    self._obs_key = obs_key
+    self._act_key = act_key
+
+  def __getattr__(self, name):
+    if name.startswith('__'):
+      raise AttributeError(name)
+    try:
+      return getattr(self._env, name)
+    except AttributeError:
+      raise ValueError(name)
+
+  @property
+  def obs_space(self):
+    if self._obs_is_dict:
+      spaces = self._env.observation_space.spaces.copy()
+    else:
+      spaces = {self._obs_key: self._env.observation_space}
+    return {
+        **spaces,
+        'reward': gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
+        'is_first': gym.spaces.Box(0, 1, (), dtype=np.bool),
+        'is_last': gym.spaces.Box(0, 1, (), dtype=np.bool),
+        'is_terminal': gym.spaces.Box(0, 1, (), dtype=np.bool),
+    }
+
+  @property
+  def act_space(self):
+    if self._act_is_dict:
+      return self._env.action_space.spaces.copy()
+    else:
+      return {self._act_key: self._env.action_space}
+
+  def step(self, action):
+    if not self._act_is_dict:
+      action = action[self._act_key]
+    observations, rewards, done, info = self._env.step(action)
+
+    if not self._obs_is_dict:
+      observations = {self._obs_key: observations}
+
+    filtered_observations = {}
+    for player_id, observation in observations.items():
+        obs = {key: value for key, value in observation.items() if key == "RGB"}
+        obs['is_first'] = False
+        obs['is_last'] = done["__all__"]
+        obs['is_terminal'] = info.get('is_terminal', done)
+        obs['reward'] = float(rewards[player_id])
+        filtered_observations[player_id] = obs
+
+    return filtered_observations
+
+  def reset(self):
+    observations = self._env.reset()
+    if not self._obs_is_dict:
+      observations = {self._obs_key: observations}
+    filtered_observations = {}
+    for player_id, observation in observations.items():
+        obs = {key: value for key, value in observation.items() if key == "RGB"}
+        obs['reward'] = 0.0
+        obs['is_first'] = True
+        obs['is_last'] = False
+        obs['is_terminal'] = False
+        filtered_observations[player_id] = obs
+    return filtered_observations
+
+
 class GymWrapper:
 
   def __init__(self, env, obs_key='image', act_key='action'):
@@ -456,6 +533,56 @@ class OneHotAction:
     reference = np.zeros(actions, dtype=np.float32)
     reference[index] = 1.0
     return reference
+
+
+class ResizeImageMultiAgent:
+
+  def __init__(self, env, size=(64, 64)):
+    self._env = env
+    self._size = size
+    self._keys = [
+        k for k, v in env.obs_space.items()
+        if len(v.shape) > 1 and v.shape[:2] != size]
+    print(f'Resizing keys {",".join(self._keys)} to {self._size}.')
+    if self._keys:
+      from PIL import Image
+      self._Image = Image
+
+  def __getattr__(self, name):
+    if name.startswith('__'):
+      raise AttributeError(name)
+    try:
+      return getattr(self._env, name)
+    except AttributeError:
+      raise ValueError(name)
+
+  @property
+  def obs_space(self):
+    spaces = self._env.obs_space
+    for key in self._keys:
+      shape = self._size + spaces[key].shape[2:]
+      spaces[key] = gym.spaces.Box(0, 255, shape, np.uint8)
+    return spaces
+
+  def step(self, action):
+    observations = self._env.step(action)
+    for player_id, obs in observations.items():
+        for key in self._keys:
+          obs[key] = self._resize(obs[key])
+    return observations
+
+  def reset(self):
+    observations = self._env.reset()
+    for player_id, obs in observations.items():
+        for key in self._keys:
+          obs[key] = self._resize(obs[key])
+    return observations
+
+  def _resize(self, image):
+    image = self._Image.fromarray(image)
+    image = image.resize(self._size, self._Image.NEAREST)
+    image = np.array(image)
+    return image
 
 
 class ResizeImage:

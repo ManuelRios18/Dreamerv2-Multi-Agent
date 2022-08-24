@@ -12,7 +12,7 @@ class Mob:
         self.prefix = prefix
         self.train_replays = {prefix + str(player_id): common.Replay(logdir / f"{prefix}{player_id}_train_episodes",
                                                                      **config.replay)
-                              for player_id in n_agents}
+                              for player_id in range(n_agents)}
 
         self.eval_replays = {prefix + str(player_id):
                              common.Replay(logdir / f"{prefix}{player_id}_eval_episodes",
@@ -21,11 +21,12 @@ class Mob:
                                                minlen=config.dataset.length,
                                                maxlen=config.dataset.length)
                                            )
-                             for player_id in n_agents}
+                             for player_id in range(n_agents)}
 
         self.agents = None
         self.weights_directory = pathlib.Path(logdir / "weights").expanduser()
         self.weights_directory.mkdir(parents=True, exist_ok=True)
+        print(f"MOB has {self.n_agents} agents")
 
     def add_steps_train(self, transitions, worker=0):
         """
@@ -34,6 +35,7 @@ class Mob:
         :param worker:
         :return:
         """
+        print(transitions)
         for player_id, transition in transitions.items():
             self.train_replays[player_id].add_step(transition, worker)
 
