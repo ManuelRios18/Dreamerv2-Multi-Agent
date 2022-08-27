@@ -200,3 +200,16 @@ class CarryOverState:
   def __call__(self, *args):
     self._state, out = self._fn(*args, self._state)
     return out
+
+
+class CarryOverStateMultiAgent:
+
+  def __init__(self, fn, n_agents, prefix):
+    self._fn = fn
+    self.n_agents = n_agents
+    self.prefix = prefix
+    self._state = {f"{self.prefix}{agent_id}": None for agent_id in range(self.n_agents)}
+
+  def __call__(self, *args):
+    self._state, out = self._fn(*args, self._state)
+    return out

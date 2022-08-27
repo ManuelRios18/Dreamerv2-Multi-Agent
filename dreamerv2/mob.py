@@ -58,7 +58,7 @@ class Mob:
         for player_id, data in training_data.items():
             dataset = next(data)
             state = agents_states[player_id]
-            state, metrics = self.agents[player_id].train(next(dataset), state)
+            state, metrics = self.agents[player_id].train(dataset, state)
             new_states[player_id] = state
             agent_metrics[player_id] = metrics
         agent_metrics = {f"{player_id}_{metric_name}": metric_value
@@ -80,7 +80,7 @@ class Mob:
         for player_id in range(self.n_agents):
             path = self.weights_directory / f"agent_{player_id}_variables.pkl"
             if path.exists():
-                self.agents[player_id].load(path)
+                self.agents[f"{self.prefix}{player_id}"].load(path)
             else:
                 load_success = False
 
@@ -88,7 +88,7 @@ class Mob:
 
     def save_agents(self, prefix=""):
         for player_id in range(self.n_agents):
-            self.agents[player_id].save(self.weights_directory / f"{prefix}agent_{player_id}_variables.pkl")
+            self.agents[f"{self.prefix}{player_id}"].save(self.weights_directory / f"{prefix}agent_{player_id}_variables.pkl")
 
     def report(self, dataset):
         result = {}
@@ -112,7 +112,7 @@ class RandomMob:
         output = {}
         for player_id, player in self.agents.items():
             obs = observations[player_id]
-            actions = player(obs, None, None)
+            actions, _ = player(obs, None, None)
             output[player_id] = actions
 
         return output, None

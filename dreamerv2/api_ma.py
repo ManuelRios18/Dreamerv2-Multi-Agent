@@ -67,8 +67,8 @@ def train(env, testing_env, config, outputs=None):
   should_expl = common.Until(config.expl_until)
 
   def per_episode(ep, mode):
-    length = len(ep['reward']) - 1
-    score = float(ep['reward'].astype(np.float64).sum())
+    length = len(ep["player_0"]['reward']) - 1
+    score = np.sum([ep[p_id]["reward"].astype(np.float64).sum() for p_id in ep.keys()])/len(ep)
     print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
     logger.scalar(f'{mode}_return', score)
     logger.scalar(f'{mode}_length', length)
@@ -81,7 +81,7 @@ def train(env, testing_env, config, outputs=None):
         logger.scalar(f'{mode}_max_{key}', ep[key].max(0).mean())
     if should_video_train(step):
       for key in config.log_keys_video:
-        logger.video(f'{mode}_policy_{key}', ep[key])
+        logger.video(f'{mode}_policy_{key}', ep["player_0"][key])
     replay = dict(train=agents_mob.train_replays[agents_prefix+str(0)],
                   eval=agents_mob.eval_replays[agents_prefix+str(0)])[mode]
     logger.add(replay.stats, prefix=mode)
@@ -91,7 +91,7 @@ def train(env, testing_env, config, outputs=None):
     wrapped_env = common.GymWrapperMultiAgent(base_env)
     wrapped_env = common.ResizeImageMultiAgent(wrapped_env)
     if hasattr(wrapped_env.act_space['action'], 'n'):
-      train_env = common.OneHotAction(wrapped_env)
+      train_env = common.OneHotActionMultiAgent(wrapped_env)
     else:
       train_env = common.NormalizeAction(wrapped_env)
     wrapped_env = common.TimeLimit(train_env, config.time_limit)
@@ -100,13 +100,13 @@ def train(env, testing_env, config, outputs=None):
   train_env = wrap_env(env)
   eval_env = wrap_env(testing_env)
 
-  train_driver = common.MultiAgentDriver([train_env])
+  train_driver = common.MultiAgentDriver([train_env], n_agents, agents_prefix)
   train_driver.on_episode(lambda ep: per_episode(ep, mode='train'))
   train_driver.on_step(lambda tran, worker: step.increment())
   train_driver.on_step(agents_mob.add_steps_train)
   train_driver.on_reset(agents_mob.add_steps_train)
 
-  eval_driver = common.MultiAgentDriver([eval_env])
+  eval_driver = common.MultiAgentDriver([eval_env], n_agents, agents_prefix)
   eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
   eval_driver.on_episode(agents_mob.add_episode_eval)
 
@@ -125,7 +125,7 @@ def train(env, testing_env, config, outputs=None):
   train_datasets = agents_mob.get_datasets(mode="train")
   eval_datasets = agents_mob.get_datasets(mode="eval")
 
-  train_agents = common.CarryOverState(agents_mob.train_mob)
+  train_agents = common.CarryOverStateMultiAgent(agents_mob.train_mob, n_agents, agents_prefix)
   train_agents(train_datasets)
 
   if not agents_mob.load_agents():
@@ -145,7 +145,7 @@ def train(env, testing_env, config, outputs=None):
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
         metrics[name].clear()
-      logger.add(agents_mob.report(train_agents))
+      logger.add(agents_mob.report(train_datasets))
       logger.write(fps=True)
 
   train_driver.on_step(train_step)
@@ -158,8 +158,7 @@ def train(env, testing_env, config, outputs=None):
     agent_score = np.mean(eval_driver.episode_rewards)
     if agent_score > best_agent_score:
       best_agent_score = agent_score
-      agents_prefix = f"ba_{step.value}_"
-      agents_mob.save_agents(agents_prefix)
+      agents_mob.save_agents(f"ba_{step.value}_")
       print(f"Saving best mob with score {agent_score}")
     print('Start training.')
     train_driver(train_policy, steps=config.eval_every)
