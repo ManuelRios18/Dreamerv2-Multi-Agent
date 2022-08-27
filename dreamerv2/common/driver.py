@@ -58,6 +58,7 @@ class Driver:
       obs = [e.step(a) for e, a in zip(self._envs, actions)]
       obs = [ob() if callable(ob) else ob for ob in obs]
       for i, (act, ob) in enumerate(zip(actions, obs)):
+        #act: {'action': array([0., 0., 0., 0., 1., 0., 0., 0.], dtype=float32)}
         tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
         [fn(tran, worker=i, **self._kwargs) for fn in self._on_steps]
         self._eps[i].append(tran)
