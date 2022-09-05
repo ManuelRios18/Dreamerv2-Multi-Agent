@@ -39,7 +39,9 @@ class Mob:
             self.train_replays[player_id].add_step(transition, worker)
 
     def add_episode_eval(self, episode):
-        for player_id, ep in episode.items():
+        for player_num in range(self.n_agents):
+            player_id = f"{self.prefix}{player_num}"
+            ep = episode[player_id]
             self.eval_replays[player_id].add_episode(ep)
 
     def create_agents(self, obs_space, act_space, step):

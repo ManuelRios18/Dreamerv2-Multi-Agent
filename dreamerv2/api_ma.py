@@ -68,8 +68,10 @@ def train(env, testing_env, config, outputs=None):
 
   def per_episode(ep, mode):
     length = len(ep["player_0"]['reward']) - 1
-    score = np.sum([ep[p_id]["reward"].astype(np.float64).sum() for p_id in ep.keys()])/len(ep)
+    score = ep["metrics"]["efficiency"]
     print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
+    for metric_name, metric_value in ep["metrics"].items():
+      logger.scalar(f'{mode}_{metric_name}', metric_value)
     logger.scalar(f'{mode}_return', score)
     logger.scalar(f'{mode}_length', length)
     for key, value in ep.items():

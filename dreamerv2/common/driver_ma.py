@@ -30,6 +30,22 @@ class MultiAgentDriver:
     self._state = {f"{self.agents_prefix}{player_id}": None for player_id in range(self.n_agents)}
     self.episode_rewards = []
 
+  def get_episode_metrics(self, current_episode, T):
+    n_zaps = current_episode._env._env._env.world_data["n_zaps"]
+    consumption_by_player = current_episode._env._env._env.world_data["consumption"]
+
+    total_consumption = np.sum(consumption_by_player)
+    efficiency = total_consumption/self.n_agents
+
+    peacefulness = (self.n_agents * T - n_zaps) / self.n_agents
+
+    mad = np.abs(np.subtract.outer(consumption_by_player, consumption_by_player)).mean()
+    rmad = mad / np.mean(consumption_by_player)
+    gini_index = 0.5 * rmad
+    equality = 1-gini_index
+
+    return {"efficiency": efficiency, "peacefulness": peacefulness, "equality": equality}
+
   def __call__(self, policy, steps=0, episodes=0):
     step, episode = 0, 0
     self.episode_rewards = []
@@ -72,9 +88,12 @@ class MultiAgentDriver:
         step += 1
         if mob_ob[f"{self.agents_prefix}0"]['is_last']:
           ep = self._eps[i]
+          ep_len = len(ep) - 1
           ep = {player_id: {k: self._convert([t[player_id][k] for t in ep]) for k in ep[0]["player_0"]} for player_id in ep[0].keys()}
-          ep_reward = np.sum([ep[p_id]["reward"].astype(np.float64).sum() for p_id in ep.keys()])/self.n_agents
+          ep_metrics = self.get_episode_metrics(self._envs[i], ep_len)
+          ep_reward = ep_metrics["efficiency"]
           self.episode_rewards.append(ep_reward)
+          ep["metrics"] = ep_metrics
           [fn(ep, **self._kwargs) for fn in self._on_episodes]
           episode += 1
       self._obs = obs

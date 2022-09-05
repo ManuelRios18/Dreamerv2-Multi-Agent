@@ -22,6 +22,7 @@ class GymWrapperMultiAgent:
     self._act_is_dict = hasattr(self._env.action_space, 'spaces')
     self._obs_key = obs_key
     self._act_key = act_key
+    self.world_data = {"n_zaps": 0, "consumption": None}
 
   def __getattr__(self, name):
     if name.startswith('__'):
@@ -69,10 +70,13 @@ class GymWrapperMultiAgent:
         obs['is_terminal'] = info.get('is_terminal', done["__all__"])
         obs['reward'] = float(rewards[player_id])
         filtered_observations[player_id] = obs
-
+    step_world_data = info["player_0"]
+    self.world_data["n_zaps"] += np.sum(step_world_data.get("WORLD.WHO_ZAPPED_WHO", 0))
+    self.world_data["consumption"] = step_world_data.get("WORLD.CONSUMPTION_BY_PLAYER", np.array([0, 0]))
     return filtered_observations
 
   def reset(self):
+    self.world_data = {"n_zaps": 0, "consumption": None}
     observations = self._env.reset()
     if not self._obs_is_dict:
       observations = {self._obs_key: observations}
