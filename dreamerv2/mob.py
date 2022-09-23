@@ -5,15 +5,16 @@ import pathlib
 
 class Mob:
 
-    def __init__(self, config, logdir, n_agents, prefix):
+    def __init__(self, config, logdir, n_agents, prefix, load_train_ds=True):
         self.config = config
         self.logdir = logdir
         self.n_agents = n_agents
         self.prefix = prefix
-        self.train_replays = {prefix + str(player_id): common.Replay(logdir / f"{prefix}{player_id}_train_episodes",
-                                                                     **config.replay)
-                              for player_id in range(n_agents)}
-
+        self.load_train_ds = load_train_ds
+        if self.load_train_ds:
+            self.train_replays = {prefix + str(player_id): common.Replay(logdir / f"{prefix}{player_id}_train_episodes",
+                                                                         **config.replay)
+                                  for player_id in range(n_agents)}
         self.eval_replays = {prefix + str(player_id):
                              common.Replay(logdir / f"{prefix}{player_id}_eval_episodes",
                                            **dict(
@@ -50,7 +51,11 @@ class Mob:
             self.agents[f"{self.prefix}{player_num}"] = agent.Agent(self.config, obs_space, act_space, step)
 
     def get_datasets(self, mode="train"):
-        replays = dict(train=self.train_replays, eval=self.eval_replays)[mode]
+        if self.load_train_ds:
+            replays = dict(train=self.train_replays, eval=self.eval_replays)[mode]
+        else:
+            print("Loading eval replays since load_train_ds is set to False")
+            replays = self.eval_replays
         datasets = {player_id: iter(replays[player_id].dataset(**self.config.dataset))
                     for player_id in replays.keys()}
         return datasets
@@ -95,7 +100,8 @@ class Mob:
     def report(self, dataset):
         result = {}
         for player_id, data in dataset.items():
-            report = self.agents[player_id].report(next(data))
+            dummy = next(data)
+            report = self.agents[player_id].report(dummy)
             for k, v in report.items():
                 result[f"{player_id}_{k}"] = v
         return result
