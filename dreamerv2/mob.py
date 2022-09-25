@@ -24,10 +24,28 @@ class Mob:
                                            )
                              for player_id in range(n_agents)}
 
+        self.record_replays = None
         self.agents = None
         self.weights_directory = pathlib.Path(logdir / "weights").expanduser()
         self.weights_directory.mkdir(parents=True, exist_ok=True)
         print(f"MOB has {self.n_agents} agents")
+
+    def initialize_recording(self):
+        self.record_replays = {self.prefix + str(player_id):
+                                   common.Replay(self.logdir / f"{self.prefix}{player_id}_record_episodes",
+                                                 **dict(
+                                                     capacity=self.config.replay.capacity // 10,
+                                                     minlen=self.config.dataset.length,
+                                                     maxlen=self.config.dataset.length)
+                                                 )
+                               for player_id in range(self.n_agents)}
+
+    def add_episode_record(self, episode):
+        assert self.record_replays is not None
+        for player_num in range(self.n_agents):
+            player_id = f"{self.prefix}{player_num}"
+            ep = episode[player_id]
+            self.record_replays[player_id].add_episode(ep)
 
     def add_steps_train(self, transitions, worker=0):
         """
