@@ -100,6 +100,18 @@ class Mob:
             mob_states[player_id] = state
         return mob_actions, mob_states
 
+    def mob_policy_with_value(self, observations, states):
+        mob_actions = {}
+        mob_states = {}
+        mob_values = {}
+        for player_id, obs in observations.items():
+            state = states[player_id]
+            action, state, value = self.agents[player_id].policy_with_value(obs=obs, state=state)
+            mob_actions[player_id] = action
+            mob_states[player_id] = state
+            mob_values[player_id] = value
+        return mob_actions, mob_states, mob_values
+
     def load_agents(self):
         load_success = True
         for player_id in range(self.n_agents):
